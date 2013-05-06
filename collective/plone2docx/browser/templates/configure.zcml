@@ -1,0 +1,12 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:browser="http://namespaces.zope.org/browser"
+    i18n_domain="collective.plone2docx">
+
+    <browser:page 
+        for="*"
+        name="plone2docx_view"
+        class=".plone2docx_view.DocxView"
+        permission="zope2.View" />  
+
+</configure>
