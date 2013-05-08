@@ -22,8 +22,8 @@ class DocxView(BrowserView):
 
     def __call__(self):
         page = self.get_the_page()
-        page = self.create_the_docx()
-        return self.set_the_response(page)
+        self.create_the_docx()
+        return self.set_the_response()
 
     def create_the_docx(self):
         relationships = docx.relationshiplist()
@@ -31,8 +31,8 @@ class DocxView(BrowserView):
         page = self.get_the_page()
         body = document.xpath('/w:document/w:body', namespaces=docx.nsprefixes)[0]
         self.dummy_content(body)
-        document = self.zip_the_docx(relationships, document)
-        return document
+        self.zip_the_docx(relationships, document)
+        return
 
     def dummy_content(self, body):
         body.append(docx.heading('Editing documents', 2))
@@ -49,9 +49,9 @@ class DocxView(BrowserView):
         contenttypes = docx.contenttypes()
         websettings = docx.websettings()
         wordrelationships = docx.wordrelationships(relationships)
-    
+        file_name = 'filename.docx'
         # Save our document
-        docx.savedocx(document, coreprops, appprops, contenttypes, websettings,wordrelationships, 'Welcome to the Python docx module.docx')
+        docx.savedocx(document, coreprops, appprops, contenttypes, websettings,wordrelationships, file_name)
         return
 
     def get_the_page(self):
@@ -77,14 +77,19 @@ class DocxView(BrowserView):
             new_html = raw_html
         return new_html
 
-    def set_the_response(self, docxcontent):
-        nice_filename = 'to_do.docx'
+    def set_the_response(self):
+        nice_filename = 'filename.docx'
+        file = open(nice_filename)
+        stream = file.read()
+        file.close()
+        os.remove(nice_filename)
+
         self.request.response.setHeader("Content-Disposition",
                                         "attachment; filename=%s" %
                                         nice_filename)
         self.request.response.setHeader("Content-Type", "application/msword")
-        self.request.response.setHeader("Content-Length", len(docxcontent))
+        self.request.response.setHeader("Content-Length", len(stream))
         self.request.response.setHeader('Last-Modified', DateTime.rfc822(DateTime()))
         self.request.response.setHeader("Cache-Control", "no-store")
         self.request.response.setHeader("Pragma", "no-cache")
-        self.request.response.write(docxcontent)
+        self.request.response.write(stream)
