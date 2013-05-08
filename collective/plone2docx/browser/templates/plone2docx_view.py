@@ -16,12 +16,27 @@ import docx
 def sort_key(a, b):
     return cmp(a.order, b.order)
 
+def get_attrs1(element, tag, attr):
+    """Return attribute `attr` of `tag` child elements of `element`."""
+    
+    # If an element has any cildren (nested elements) loop through them:
+    if len(element):
+        for node in element:
+            # Recursively call this function, yielding each result:
+            for attribute in get_attrs(node, tag, attr):
+                yield attribute
+    
+    # Otherwise, check if element is of type `tag` with attribute `attr`, if so
+    # yield the value of that attribute.
+    if element.tag == 'variable':
+        if attr in element.attrib:
+            yield element.attrib[attr]
+
 @implementer(IPublishTraverse)
 class DocxView(BrowserView):
     """View a plone object in docx format"""
 
     def __call__(self):
-        page = self.get_the_page()
         self.create_the_docx()
         return self.set_the_response()
 
@@ -29,15 +44,43 @@ class DocxView(BrowserView):
         relationships = docx.relationshiplist()
         document = docx.newdocument()
         page = self.get_the_page()
+        tree = etree.fromstring(page)
         body = document.xpath('/w:document/w:body', namespaces=docx.nsprefixes)[0]
-        self.dummy_content(body)
+        self.write_the_docs(body, tree)
         self.zip_the_docx(relationships, document)
         return
 
-    def dummy_content(self, body):
-        body.append(docx.heading('Editing documents', 2))
-        body.append(docx.paragraph('Thanks to the awesomeness of the lxml module, '
-                              'we can:'))
+    def write_the_docs(self, body, tree):
+        def get_attrs(element):
+            yield element
+            # If an element has any children (nested elements) loop through them:
+            if len(element):
+                for node in element:
+                    # Recursively call this function, yielding each result:
+                    for attribute in get_attrs(node):
+                        yield attribute
+
+        html_head = tree[0]
+        html_body = tree[1]
+        for item in get_attrs(html_body):
+            # get rid of the namespace
+            try:
+                tag = item.tag.replace('{http://www.w3.org/1999/xhtml}', '')
+            except AttributeError:
+                # if tag is callable, then it's probably a comment
+                continue
+            self.add_element(body, item, tag)
+
+    def add_element(self, body, element, tag):
+        """Add the element to the document"""
+        if tag == 'h1':
+            body.append(docx.heading(element.text.strip(), 1))
+        elif tag == 'h2':
+            body.append(docx.heading(element.text.strip(), 2))
+        elif tag == 'h3':
+            body.append(docx.heading(element.text.strip(), 3))
+        elif tag == 'p':
+            body.append(docx.paragraph(element.text.strip()))
 
     def zip_the_docx(self, relationships, document):
         title = 'foo'
