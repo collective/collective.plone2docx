@@ -13,6 +13,8 @@ from Products.Five import BrowserView
 
 import docx
 
+BANNED_IDS = ['edit-bar', 'contentActionMenus']
+
 def sort_key(a, b):
     return cmp(a.order, b.order)
 
@@ -21,10 +23,11 @@ def get_attrs(element, nested_tags=[]):
     # If an element has any children (nested elements) loop through them
     # unless they are specified to not loop
     if len(element) and element.tag.replace('{http://www.w3.org/1999/xhtml}', '') not in nested_tags:
-        for node in element:
-            # Recursively call this function, yielding each result:
-            for attribute in get_attrs(node):
-                yield attribute
+        if element.attrib.has_key('id') and element.attrib['id'] not in BANNED_IDS:
+            for node in element:
+                # Recursively call this function, yielding each result:
+                for attribute in get_attrs(node):
+                    yield attribute
 
 @implementer(IPublishTraverse)
 class DocxView(BrowserView):
@@ -47,7 +50,13 @@ class DocxView(BrowserView):
     def write_the_docs(self, body, tree):
         html_head = tree[0]
         html_body = tree[1]
-        for item in get_attrs(html_body, nested_tags=['table', 'ul']):
+        content = html_body.xpath("//*[@id='content']")
+        if len(content) == 1:
+            content = content[0]
+        else:
+            # either no content id or multiple, so just use the body
+            content = html_body
+        for item in get_attrs(content, nested_tags=['table', 'ul']):
             # get rid of the namespace
             try:
                 tag = item.tag.replace('{http://www.w3.org/1999/xhtml}', '')
