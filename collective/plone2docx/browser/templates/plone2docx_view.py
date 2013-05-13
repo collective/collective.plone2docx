@@ -16,21 +16,15 @@ import docx
 def sort_key(a, b):
     return cmp(a.order, b.order)
 
-def get_attrs1(element, tag, attr):
-    """Return attribute `attr` of `tag` child elements of `element`."""
-    
-    # If an element has any cildren (nested elements) loop through them:
-    if len(element):
+def get_attrs(element, nested_tags=[]):
+    yield element
+    # If an element has any children (nested elements) loop through them
+    # unless they are specified to not loop
+    if len(element) and element.tag.replace('{http://www.w3.org/1999/xhtml}', '') not in nested_tags:
         for node in element:
             # Recursively call this function, yielding each result:
-            for attribute in get_attrs(node, tag, attr):
+            for attribute in get_attrs(node):
                 yield attribute
-    
-    # Otherwise, check if element is of type `tag` with attribute `attr`, if so
-    # yield the value of that attribute.
-    if element.tag == 'variable':
-        if attr in element.attrib:
-            yield element.attrib[attr]
 
 @implementer(IPublishTraverse)
 class DocxView(BrowserView):
@@ -51,18 +45,9 @@ class DocxView(BrowserView):
         return
 
     def write_the_docs(self, body, tree):
-        def get_attrs(element):
-            yield element
-            # If an element has any children (nested elements) loop through them:
-            if len(element):
-                for node in element:
-                    # Recursively call this function, yielding each result:
-                    for attribute in get_attrs(node):
-                        yield attribute
-
         html_head = tree[0]
         html_body = tree[1]
-        for item in get_attrs(html_body):
+        for item in get_attrs(html_body, nested_tags=['table', 'ul']):
             # get rid of the namespace
             try:
                 tag = item.tag.replace('{http://www.w3.org/1999/xhtml}', '')
@@ -73,6 +58,7 @@ class DocxView(BrowserView):
 
     def add_element(self, body, element, tag):
         """Add the element to the document"""
+        print tag
         if tag == 'h1':
             body.append(docx.heading(element.text.strip(), 1))
         elif tag == 'h2':
@@ -81,6 +67,18 @@ class DocxView(BrowserView):
             body.append(docx.heading(element.text.strip(), 3))
         elif tag == 'p':
             body.append(docx.paragraph(element.text.strip()))
+        elif tag == 'ul':
+            self.add_a_list(element, body)
+
+    def add_a_list(self, element, body):
+        items = get_attrs(element)
+        # TODO doesn't do nested lists
+        for item in items:
+            tag = item.tag.replace('{http://www.w3.org/1999/xhtml}', '')
+            if tag == 'ul':
+                continue
+            if item.text:
+                body.append(docx.paragraph(item.text.strip(), style='ListBullet'))
 
     def zip_the_docx(self, relationships, document):
         title = 'foo'
@@ -101,6 +99,7 @@ class DocxView(BrowserView):
         """Get the raw html page"""
         page = self.context()
         # check if diazo is enabled
+        # TODO if diazo not enabled you'll get an mdash entity not defined
         if self.request.get('HTTP_X_THEME_ENABLED', None):
             page = self.transform_with_diazo(page)
         return page
