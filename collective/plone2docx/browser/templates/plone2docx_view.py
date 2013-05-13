@@ -67,7 +67,6 @@ class DocxView(BrowserView):
 
     def add_element(self, body, element, tag):
         """Add the element to the document"""
-        print tag
         if tag == 'h1':
             body.append(docx.heading(element.text.strip(), 1))
         elif tag == 'h2':
@@ -78,6 +77,8 @@ class DocxView(BrowserView):
             body.append(docx.paragraph(element.text.strip()))
         elif tag == 'ul':
             self.add_a_list(element, body)
+        elif tag == 'table':
+            self.add_a_table(element, body)
 
     def add_a_list(self, element, body):
         items = get_attrs(element)
@@ -88,6 +89,17 @@ class DocxView(BrowserView):
                 continue
             if item.text:
                 body.append(docx.paragraph(item.text.strip(), style='ListBullet'))
+
+    def add_a_table(self, element, body):
+        table_content = []
+        table_rows = element[0]
+        for table_row in table_rows:
+            row_content = []
+            for cell in table_row:
+                if cell.text:
+                    row_content.append(cell.text.strip())
+            table_content.append(row_content)
+        body.append(docx.table(table_content))
 
     def zip_the_docx(self, relationships, document):
         title = 'foo'
