@@ -99,13 +99,13 @@ class DocxView(BrowserView):
         tree = etree.fromstring(page)
         body = document.xpath('/w:document/w:body', namespaces=docx.nsprefixes)[0]
         self.write_the_docx(body, tree)
-        self.write_the_header(relationships)
-        self.write_the_footer(relationships)
+        self.write_the_header(relationships, tree)
+        self.write_the_footer(relationships, tree)
         add_header_and_footer(relationships, body)
         self.zip_the_docx(relationships, document)
         return
 
-    def write_the_header(self, relationships):
+    def write_the_header(self, relationships, tree):
         # TODO keep as a tree, rather than writing to the filesystem
         header_doc = new_header()
         header = header_doc.xpath('/w:document/w:hdr', namespaces=docx.nsprefixes)[0]
@@ -114,14 +114,16 @@ class DocxView(BrowserView):
         file.write(etree.tostring(header))
         file.close()
 
-    def write_the_footer(self, relationships):
+    def write_the_footer(self, relationships, tree):
         # TODO keep as a tree, rather than writing to the filesystem
         namespacemap = {}
         namespacemap['w'] = docx.nsprefixes['w']
         namespacemap['r'] = docx.nsprefixes['r']
         footer_doc = new_footer()
         footer = footer_doc.xpath('/w:document/w:ftr', namespaces=docx.nsprefixes)[0]
-        self.add_page_number(footer, 'This is the footer')
+        import pdb;pdb.set_trace()
+        footer_text = self.get_footer_content(tree)
+        self.add_page_number(footer, footer_text)
         file = open(self.working_folder + '/word/footer.xml', 'w')
         file.write(etree.tostring(footer))
         file.close()
@@ -130,7 +132,7 @@ class DocxView(BrowserView):
         # TODO this needs tidying
         p = docx.makeelement('p')
         r1 = docx.makeelement('r')
-        text = docx.makeelement('t', 'This is the footer')
+        text = docx.makeelement('t', text)
         tab = docx.makeelement('tab')
         r2 = docx.makeelement('r')
         fldChar1 = docx.makeelement('fldChar', attributes={'fldCharType':'begin'})
@@ -156,6 +158,17 @@ class DocxView(BrowserView):
         p.append(r5)
         p.append(r6)
         footer.append(p)
+
+    def get_footer_content(self, tree):
+        html_body = tree[1]
+        content = html_body.xpath("//*[@id='docx_footer']")
+        if len(content) == 1:
+            content = content[0]
+        else:
+            # either no footer id or multiple, so return empty sring
+            return ''
+        # TODO for now assume no nested tags
+        return content.text.strip()
 
     def write_the_docx(self, body, tree):
         html_head = tree[0]
