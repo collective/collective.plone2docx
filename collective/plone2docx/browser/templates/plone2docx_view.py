@@ -32,26 +32,32 @@ def get_attrs(element, nested_tags=[]):
                 for attribute in get_attrs(node):
                     yield attribute
 
-def add_footer(relationships, body):
+def add_header_and_footer(relationships, body):
     '''Add some content as a footer'''
     template_dir = os.path.dirname(docx.__file__)
-    footer_name = 'footer.xml'
-    footer_rid = 'rId'+str(len(relationships)+1)
-    relationships.append(['http://schemas.openxmlformats.org/officeDocument/2006/relationships/', footer_name])
-    p = docx.makeelement('p')
-    pPr = docx.makeelement('pPr')
-    sectPr = docx.makeelement('sectPr')
-    # TODO can't use makeelement here as it only handles single namespace for attribs
     namespacemap = {}
     namespacemap['w'] = docx.nsprefixes['w']
     namespacemap['r'] = docx.nsprefixes['r']
     namespace = '{'+docx.nsprefixes['w']+'}'
-    footerReference = etree.Element(namespace + 'footerReference', nsmap=namespacemap)
     attributenamespace = '{'+docx.nsprefixes['r']+'}'
+    footer_name = 'footer.xml'
+    footer_rid = 'rId'+str(len(relationships)+1)
+    relationships.append(['http://schemas.openxmlformats.org/officeDocument/2006/relationships/', footer_name])
+    header_name = 'header.xml'
+    header_rid = 'rId'+str(len(relationships)+1)
+    relationships.append(['http://schemas.openxmlformats.org/officeDocument/2006/relationships/', header_name])
+    p = docx.makeelement('p')
+    pPr = docx.makeelement('pPr')
+    sectPr = docx.makeelement('sectPr')
+    # TODO can't use makeelement here as it only handles single namespace for attribs
+    footerReference = etree.Element(namespace + 'footerReference', nsmap=namespacemap)
     footerReference.set(attributenamespace + 'id', footer_rid)
-    # TODO only supports single footer in doc
     footerReference.set(namespace + 'type', 'default')
+    headerReference = etree.Element(namespace + 'headerReference', nsmap=namespacemap)
+    headerReference.set(attributenamespace + 'id', header_rid)
+    headerReference.set(namespace + 'type', 'default')
     sectPr.append(footerReference)
+    sectPr.append(headerReference)
     pPr.append(sectPr)
     p.append(pPr)
     body.append(p)
@@ -83,7 +89,7 @@ class DocxView(BrowserView):
         tree = etree.fromstring(page)
         body = document.xpath('/w:document/w:body', namespaces=docx.nsprefixes)[0]
         self.write_the_docx(body, tree)
-        add_footer(relationships, body)
+        add_header_and_footer(relationships, body)
         self.zip_the_docx(relationships, document)
         return
 
