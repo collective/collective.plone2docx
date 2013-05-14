@@ -99,13 +99,13 @@ class DocxView(BrowserView):
         tree = etree.fromstring(page)
         body = document.xpath('/w:document/w:body', namespaces=docx.nsprefixes)[0]
         self.write_the_docx(body, tree)
-        self.write_the_header()
-        self.write_the_footer()
+        self.write_the_header(relationships)
+        self.write_the_footer(relationships)
         add_header_and_footer(relationships, body)
         self.zip_the_docx(relationships, document)
         return
 
-    def write_the_header(self):
+    def write_the_header(self, relationships):
         # TODO keep as a tree, rather than writing to the filesystem
         header_doc = new_header()
         header = header_doc.xpath('/w:document/w:hdr', namespaces=docx.nsprefixes)[0]
@@ -114,14 +114,48 @@ class DocxView(BrowserView):
         file.write(etree.tostring(header))
         file.close()
 
-    def write_the_footer(self):
+    def write_the_footer(self, relationships):
         # TODO keep as a tree, rather than writing to the filesystem
+        namespacemap = {}
+        namespacemap['w'] = docx.nsprefixes['w']
+        namespacemap['r'] = docx.nsprefixes['r']
         footer_doc = new_footer()
         footer = footer_doc.xpath('/w:document/w:ftr', namespaces=docx.nsprefixes)[0]
-        footer.append(docx.paragraph('This is the footer'))
+        self.add_page_number(footer, 'This is the footer')
         file = open(self.working_folder + '/word/footer.xml', 'w')
         file.write(etree.tostring(footer))
         file.close()
+
+    def add_page_number(self, footer, text):
+        # TODO this needs tidying
+        p = docx.makeelement('p')
+        r1 = docx.makeelement('r')
+        text = docx.makeelement('t', 'This is the footer')
+        tab = docx.makeelement('tab')
+        r2 = docx.makeelement('r')
+        fldChar1 = docx.makeelement('fldChar', attributes={'fldCharType':'begin'})
+        r3 = docx.makeelement('r')
+        instrText = docx.makeelement('instrText', 'PAGE')
+        r4 = docx.makeelement('r')
+        fldChar2 = docx.makeelement('fldChar', attributes={'fldCharType':'separate'})
+        r5 = docx.makeelement('r')
+        text2 = docx.makeelement('t', '11')
+        r6 = docx.makeelement('r')
+        fldChar3 = docx.makeelement('fldChar', attributes={'fldCharType':'end'})
+        r6.append(fldChar3)
+        r5.append(text2)
+        r4.append(fldChar2)
+        r3.append(instrText)
+        r2.append(fldChar1)
+        r1.append(text)
+        r1.append(tab)
+        p.append(r1)
+        p.append(r2)
+        p.append(r3)
+        p.append(r4)
+        p.append(r5)
+        p.append(r6)
+        footer.append(p)
 
     def write_the_docx(self, body, tree):
         html_head = tree[0]
