@@ -104,8 +104,17 @@ class DocxView(BrowserView):
         add_header_and_footer(relationships, body)
         self.zip_the_docx(relationships, document)
         return
-    
+
     def write_the_header(self):
+        # TODO keep as a tree, rather than writing to the filesystem
+        header_doc = new_header()
+        header = header_doc.xpath('/w:document/w:hdr', namespaces=docx.nsprefixes)[0]
+        header.append(docx.paragraph('This is the header'))
+        file = open(self.working_folder + '/word/header.xml', 'w')
+        file.write(etree.tostring(header))
+        file.close()
+
+    def write_the_footer(self):
         # TODO keep as a tree, rather than writing to the filesystem
         footer_doc = new_footer()
         footer = footer_doc.xpath('/w:document/w:ftr', namespaces=docx.nsprefixes)[0]
@@ -114,15 +123,6 @@ class DocxView(BrowserView):
         file.write(etree.tostring(footer))
         file.close()
 
-    def write_the_footer(self):
-        # TODO keep as a tree, rather than writing to the filesystem
-        header_doc = new_header()
-        header = header_doc.xpath('/w:document/w:hdr', namespaces=docx.nsprefixes)[0]
-        header.append(docx.paragraph('This is the header'))
-        file = open(self.working_folder + '/word/header.xml', 'w')
-        file.write(etree.tostring(header))
-        file.close()
-    
     def write_the_docx(self, body, tree):
         html_head = tree[0]
         html_body = tree[1]
