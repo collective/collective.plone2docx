@@ -67,6 +67,16 @@ def newdocument():
     document.append(docx.makeelement('body'))
     return document
 
+def new_footer():
+    footer = docx.makeelement('document', nsprefix=['w', 'r'])
+    footer.append(docx.makeelement('ftr'))
+    return footer
+
+def new_header():
+    header = docx.makeelement('document', nsprefix=['w', 'r'])
+    header.append(docx.makeelement('hdr'))
+    return header
+
 @implementer(IPublishTraverse)
 class DocxView(BrowserView):
     """View a plone object in docx format"""
@@ -89,10 +99,30 @@ class DocxView(BrowserView):
         tree = etree.fromstring(page)
         body = document.xpath('/w:document/w:body', namespaces=docx.nsprefixes)[0]
         self.write_the_docx(body, tree)
+        self.write_the_header()
+        self.write_the_footer()
         add_header_and_footer(relationships, body)
         self.zip_the_docx(relationships, document)
         return
+    
+    def write_the_header(self):
+        # TODO keep as a tree, rather than writing to the filesystem
+        footer_doc = new_footer()
+        footer = footer_doc.xpath('/w:document/w:ftr', namespaces=docx.nsprefixes)[0]
+        footer.append(docx.paragraph('This is the footer'))
+        file = open(self.working_folder + '/word/footer.xml', 'w')
+        file.write(etree.tostring(footer))
+        file.close()
 
+    def write_the_footer(self):
+        # TODO keep as a tree, rather than writing to the filesystem
+        header_doc = new_header()
+        header = header_doc.xpath('/w:document/w:hdr', namespaces=docx.nsprefixes)[0]
+        header.append(docx.paragraph('This is the header'))
+        file = open(self.working_folder + '/word/header.xml', 'w')
+        file.write(etree.tostring(header))
+        file.close()
+    
     def write_the_docx(self, body, tree):
         html_head = tree[0]
         html_body = tree[1]
