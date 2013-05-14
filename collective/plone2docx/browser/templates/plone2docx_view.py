@@ -1,6 +1,9 @@
+import datetime
 from DateTime import DateTime
 from lxml import etree
 import os
+import shutil
+import string
 import zipfile
 
 from zope.component import getAdapters
@@ -34,6 +37,13 @@ class DocxView(BrowserView):
     """View a plone object in docx format"""
 
     def __call__(self):
+        word_template__path = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, 'docx-template'))
+        # TODO get the var folder, to make sure user has write permissions and use a random for folder id
+        destination_path = os.path.join(os.getcwd(), 'docx_temp')
+        if os.path.exists(destination_path):
+            shutil.rmtree(destination_path)
+        shutil.copytree(word_template__path, destination_path)
+        self.working_folder = destination_path
         self.create_the_docx()
         return self.set_the_response()
 
@@ -43,11 +53,11 @@ class DocxView(BrowserView):
         page = self.get_the_page()
         tree = etree.fromstring(page)
         body = document.xpath('/w:document/w:body', namespaces=docx.nsprefixes)[0]
-        self.write_the_docs(body, tree)
+        self.write_the_docx(body, tree)
         self.zip_the_docx(relationships, document)
         return
 
-    def write_the_docs(self, body, tree):
+    def write_the_docx(self, body, tree):
         html_head = tree[0]
         html_body = tree[1]
         content = html_body.xpath("//*[@id='content']")
@@ -113,7 +123,11 @@ class DocxView(BrowserView):
         wordrelationships = docx.wordrelationships(relationships)
         file_name = 'filename.docx'
         # Save our document
-        docx.savedocx(document, coreprops, appprops, contenttypes, websettings,wordrelationships, file_name)
+        # TODO all assets need to be in template_dir to work with this method
+        # template_dir should be copied somewhere else and this method rewritten
+        # as our use case is to create the same docx template this currently meets our needs
+        self.savedocx(document, coreprops, appprops, contenttypes, websettings,wordrelationships, file_name)
+        shutil.rmtree(self.working_folder)
         return
 
     def get_the_page(self):
@@ -156,3 +170,41 @@ class DocxView(BrowserView):
         self.request.response.setHeader("Cache-Control", "no-store")
         self.request.response.setHeader("Pragma", "no-cache")
         self.request.response.write(stream)
+
+    def savedocx(self, document, coreprops, appprops, contenttypes, websettings, wordrelationships, output):
+        '''Save a modified document'''
+        # copied from docx so we can change the template_dir
+        template_dir = self.working_folder
+        assert os.path.isdir(template_dir)
+        docxfile = zipfile.ZipFile(output, mode='w', compression=zipfile.ZIP_DEFLATED)
+
+        # Move to the template data path
+        prev_dir = os.path.abspath('.')  # save previous working dir
+        os.chdir(template_dir)
+
+        # Serialize our trees into out zip file
+        treesandfiles = {document:     'word/document.xml',
+            coreprops:    'docProps/core.xml',
+            appprops:     'docProps/app.xml',
+            contenttypes: '[Content_Types].xml',
+            websettings:  'word/webSettings.xml',
+            wordrelationships: 'word/_rels/document.xml.rels'}
+        for tree in treesandfiles:
+            docx.log.info('Saving: %s' % treesandfiles[tree])
+            treestring = etree.tostring(tree, pretty_print=True)
+            docxfile.writestr(treesandfiles[tree], treestring)
+
+        # Add & compress support files
+        files_to_ignore = ['.DS_Store']  # nuisance from some os's
+        for dirpath, dirnames, filenames in os.walk('.'):
+            for filename in filenames:
+                if filename in files_to_ignore:
+                    continue
+                templatefile = os.path.join(dirpath, filename)
+                archivename = templatefile[2:]
+                docx.log.info('Saving: %s', archivename)
+                docxfile.write(templatefile, archivename)
+        docx.log.info('Saved new file to: %r', output)
+        docxfile.close()
+        os.chdir(prev_dir)  # restore previous working dir
+        return
