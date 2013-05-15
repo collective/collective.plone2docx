@@ -157,7 +157,7 @@ class DocxView(BrowserView):
         nochangearrowheads=True
         # TODO hard code dimensions for now
         width = '7560310'
-        height = '752475'
+        height = '1378585'
         # TODO not sure what picid is for, but seems to be arbritary
         picid = '42'
         picdescription = 'The header image'
@@ -222,10 +222,10 @@ class DocxView(BrowserView):
                                               'simplePos':'0'})
         anchor.append(docx.makeelement('simplePos', nsprefix='wp', attributes={'x':'0', 'y':'0'}))
         positionH = docx.makeelement('positionH', nsprefix='wp', attributes={'relativeFrom':'character',})
-        positionH.append(docx.makeelement('posOffset', tagtext='-685800', nsprefix='wp'))
+        positionH.append(docx.makeelement('posOffset', tagtext='-1143000', nsprefix='wp'))
         anchor.append(positionH)
         positionV = docx.makeelement('positionV', nsprefix='wp', attributes={'relativeFrom':'line',})
-        positionV.append(docx.makeelement('posOffset', tagtext='-447040', nsprefix='wp'))
+        positionV.append(docx.makeelement('posOffset', tagtext='+457200', nsprefix='wp'))
         anchor.append(positionV)
         anchor.append(docx.makeelement('extent', nsprefix='wp', attributes={'cx':width, 'cy':height}))
         anchor.append(docx.makeelement('effectExtent', nsprefix='wp', attributes={'b':'0', 'l':'0', 'r':'0', 't':'0'}))
