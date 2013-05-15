@@ -4,6 +4,7 @@ from lxml import etree
 import os
 import shutil
 import string
+import urllib2
 import zipfile
 
 from zope.component import getAdapters
@@ -15,6 +16,7 @@ from plone.transformchain.interfaces import ITransform
 from Products.Five import BrowserView
 
 import docx
+from docx import makeelement
 
 BANNED_IDS = ['edit-bar', 'contentActionMenus']
 
@@ -73,7 +75,7 @@ def new_footer():
     return footer
 
 def new_header():
-    header = docx.makeelement('document', nsprefix=['w', 'r'])
+    header = docx.makeelement('document', nsprefix=['w', 'r', 'wp', 'a'])
     header.append(docx.makeelement('hdr'))
     return header
 
@@ -109,10 +111,133 @@ class DocxView(BrowserView):
         # TODO keep as a tree, rather than writing to the filesystem
         header_doc = new_header()
         header = header_doc.xpath('/w:document/w:hdr', namespaces=docx.nsprefixes)[0]
-        header.append(docx.paragraph('This is the header'))
+        header_content = self.get_header_content(tree)
+        self.add_header_image(header_content, header, relationships)
         file = open(self.working_folder + '/word/header.xml', 'w')
         file.write(etree.tostring(header))
         file.close()
+
+    def add_header_image(self, element, body, relationshiplist):
+        """Adding an image in the header is different to the body"""
+        # TODO defensive coding
+        src_url = element.attrib['src']
+        # TODO assume a root relative link
+        url = self.request['SERVER_URL'] + src_url
+        media_path = self.working_folder + '/word/media'
+        if not os.path.exists(media_path):
+            os.makedirs(media_path)
+        # TODO hard code image name for now
+        picname = 'image1.jpg'
+        file = open(media_path + '/' + picname, 'w')
+        file.write(urllib2.urlopen(url).read())
+        file.close()
+        picrelid = 'rId'+str(len(relationshiplist)+1)
+        relationshiplist.append(['http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
+                         'media/'+picname])
+        # There are 3 main elements inside a picture
+        nochangeaspect=True
+        nochangearrowheads=True
+        # TODO hard code dimensions for now
+        width = '7560310'
+        height = '752475'
+        # TODO not sure what picid is for, but seems to be arbritary
+        picid = '42'
+        picdescription = 'The header image'
+        # 1. The Blipfill - specifies how the image fills the picture area (stretch, tile, etc.)
+        blipfill = makeelement('blipFill', nsprefix='pic')
+        blipfill.append(makeelement('blip', nsprefix='a', attrnsprefix='r',
+                                attributes={'embed': picrelid}))
+        stretch = makeelement('stretch', nsprefix='a')
+        stretch.append(makeelement('fillRect', nsprefix='a'))
+        blipfill.append(makeelement('srcRect', nsprefix='a'))
+        blipfill.append(stretch)
+        # 2. The non visual picture properties
+        nvpicpr = makeelement('nvPicPr', nsprefix='pic')
+        cnvpr = makeelement('cNvPr', nsprefix='pic',
+                        attributes={'id': picid, 'name': 'Picture 1', 'descr': picname})
+        nvpicpr.append(cnvpr)
+        cnvpicpr = makeelement('cNvPicPr', nsprefix='pic')
+        cnvpicpr.append(makeelement('picLocks', nsprefix='a',
+                                attributes={'noChangeAspect': str(int(nochangeaspect)),
+                                'noChangeArrowheads': str(int(nochangearrowheads))}))
+        nvpicpr.append(cnvpicpr)
+        # 3. The Shape properties
+        sppr = makeelement('spPr', nsprefix='pic', attributes={'bwMode': 'auto'})
+        xfrm = makeelement('xfrm', nsprefix='a')
+        xfrm.append(makeelement('off', nsprefix='a', attributes={'x': '0', 'y': '0'}))
+        xfrm.append(makeelement('ext', nsprefix='a', attributes={'cx': width, 'cy': height}))
+        prstgeom = makeelement('prstGeom', nsprefix='a', attributes={'prst': 'rect'})
+        prstgeom.append(makeelement('avLst', nsprefix='a'))
+        sppr.append(xfrm)
+        sppr.append(prstgeom)
+        ln = makeelement('ln', nsprefix='a', attributes={'w': '9525'})
+        ln.append(makeelement('noFill', nsprefix='a'))
+        ln.append(makeelement('miter', nsprefix='a', attributes={'lim': '800000'}))
+        ln.append(makeelement('headEnd', nsprefix='a'))
+        ln.append(makeelement('tailEnd', nsprefix='a'))
+        sppr.append(ln)
+        # Add our 3 parts to the picture element
+        pic = makeelement('pic', nsprefix='pic')
+        pic.append(nvpicpr)
+        pic.append(blipfill)
+        pic.append(sppr)
+        # Now make the supporting elements
+        # The following sequence is just: make element, then add its children
+        graphicdata = makeelement('graphicData', nsprefix='a',
+                                      attributes={'uri': 'http://schemas.openxmlforma'
+                                      'ts.org/drawingml/2006/picture'})
+        graphicdata.append(pic)
+        graphic = makeelement('graphic', nsprefix='a')
+        graphic.append(graphicdata)
+        # This needs to be in an anchor rather than a framelocks
+        # TODO atrbibs shouldn't have a namespace
+        anchor = docx.makeelement('anchor', nsprefix='wp',
+                                  attributes={'allowOverlap':'1',
+                                              'behindDoc':'1',
+                                              'distB':'0',
+                                              'distL':'0',
+                                              'distR':'0',
+                                              'distT':'0',
+                                              'layoutInCell':'1',
+                                              'locked':'0',
+                                              'relativeHeight':'12',
+                                              'simplePos':'0'})
+        anchor.append(docx.makeelement('simplePos', nsprefix='wp', attributes={'x':'0', 'y':'0'}))
+        positionH = docx.makeelement('positionH', nsprefix='wp', attributes={'relativeFrom':'character',})
+        positionH.append(docx.makeelement('posOffset', tagtext='-685800', nsprefix='wp'))
+        anchor.append(positionH)
+        positionV = docx.makeelement('positionV', nsprefix='wp', attributes={'relativeFrom':'line',})
+        positionV.append(docx.makeelement('posOffset', tagtext='-447040', nsprefix='wp'))
+        anchor.append(positionV)
+        anchor.append(docx.makeelement('extent', nsprefix='wp', attributes={'cx':width, 'cy':height}))
+        anchor.append(docx.makeelement('effectExtent', nsprefix='wp', attributes={'b':'0', 'l':'0', 'r':'0', 't':'0'}))
+        anchor.append(docx.makeelement('wrapNone', nsprefix='wp'))
+        anchor.append(docx.makeelement('docPr', nsprefix='wp', attributes={'id': picid, 'name': 'Picture 1', 'descr': picdescription}))
+        cNvGraphicFramePr = docx.makeelement('cNvGraphicFramePr', nsprefix='wp')
+        cNvGraphicFramePr.append(docx.makeelement('graphicFrameLocks', nsprefix='a', attributes={'noChangeAspect':'1',}))
+        anchor.append(cNvGraphicFramePr)
+        # now we can append the actual graphic
+        anchor.append(graphic)
+        drawing = docx.makeelement('drawing', nsprefix='w')
+        drawing.append(anchor)
+        r = docx.makeelement('r', nsprefix='w')
+        r.append(drawing)
+        p = docx.makeelement('p', nsprefix='w')
+        p.append(r)
+        body.append(p)
+
+    def get_header_content(self, tree):
+        # TODO for now assume the header contains a single tag which is an image
+        html_body = tree[1]
+        content = html_body.xpath("//*[@id='docx_header']")
+        if len(content) == 1:
+            content = content[0]
+        else:
+            # TODO do something sensible
+            return ''
+        # TODO for now assume only a single image
+        image_tag = content[0]
+        return image_tag
 
     def write_the_footer(self, relationships, tree):
         # TODO keep as a tree, rather than writing to the filesystem
@@ -121,7 +246,6 @@ class DocxView(BrowserView):
         namespacemap['r'] = docx.nsprefixes['r']
         footer_doc = new_footer()
         footer = footer_doc.xpath('/w:document/w:ftr', namespaces=docx.nsprefixes)[0]
-        import pdb;pdb.set_trace()
         footer_text = self.get_footer_content(tree)
         self.add_page_number(footer, footer_text)
         file = open(self.working_folder + '/word/footer.xml', 'w')
@@ -202,6 +326,9 @@ class DocxView(BrowserView):
             self.add_a_list(element, body)
         elif tag == 'table':
             self.add_a_table(element, body)
+        # TODO this won't work as we need relationships
+        elif tag == 'img':
+            self.add_image(element, body)
 
     def add_a_list(self, element, body):
         items = get_attrs(element)
@@ -223,6 +350,23 @@ class DocxView(BrowserView):
                     row_content.append(cell.text.strip())
             table_content.append(row_content)
         body.append(docx.table(table_content))
+
+    def add_image(self, element, body, relationships):
+        """This only works putting in an image in the body, but the image name is hard coded, so don't use"""
+        # TODO defensive coding
+        src_url = element.attrib['src']
+        # TODO assume a root relative link
+        url = self.request['SERVER_URL'] + src_url
+        media_path = self.working_folder + '/word/media'
+        if not os.path.exists(media_path):
+            os.makedirs(media_path)
+        # TODO hard code image name for now
+        file = open(media_path + '/image1.jpg', 'w')
+        file.write(urllib2.urlopen(url).read())
+        file.close()
+        # TODO and this won't work as it copies the image from the cwd to the template_dir in docx
+        relationships, picpara = docx.picture(relationships, 'image1.jpg', 'This is a test description')
+        body.append(picpara)
 
     def zip_the_docx(self, relationships, document):
         title = 'foo'
