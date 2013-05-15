@@ -133,6 +133,19 @@ class DocxView(BrowserView):
         file.write(urllib2.urlopen(url).read())
         file.close()
         picrelid = 'rId'+str(len(relationshiplist)+1)
+        # TODO this should be moved to a separate method
+        rels_content = types = etree.fromstring('<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>')
+        rels_content.append(makeelement('Relationship', nsprefix=None,
+                                        attributes={'Id':picrelid,
+                                                    'Type':'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
+                                                    'Target':'media/image1.jpg'}))
+        rels_path = self.working_folder + '/word/_rels'
+        if not os.path.exists(rels_path):
+            os.makedirs(rels_path)
+        # TODO hard code header name for now
+        file = open(rels_path + '/header.xml.rels', 'w')
+        file.write(etree.tostring(rels_content))
+        file.close()
         relationshiplist.append(['http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
                          'media/'+picname])
         # TODO hard code the content_tpe entry for now
