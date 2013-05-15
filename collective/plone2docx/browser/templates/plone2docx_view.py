@@ -96,6 +96,7 @@ class DocxView(BrowserView):
 
     def create_the_docx(self):
         relationships = docx.relationshiplist()
+        self.content_types_list = {}
         document = newdocument()
         page = self.get_the_page()
         tree = etree.fromstring(page)
@@ -134,6 +135,8 @@ class DocxView(BrowserView):
         picrelid = 'rId'+str(len(relationshiplist)+1)
         relationshiplist.append(['http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
                          'media/'+picname])
+        # TODO hard code the content_tpe entry for now
+        self.content_types_list['/word/media/image1.jpg'] = 'image/jpeg'
         # There are 3 main elements inside a picture
         nochangeaspect=True
         nochangearrowheads=True
@@ -368,6 +371,14 @@ class DocxView(BrowserView):
         relationships, picpara = docx.picture(relationships, 'image1.jpg', 'This is a test description')
         body.append(picpara)
 
+    def fix_the_content_types(self, relationships):
+        contenttypes = docx.contenttypes()
+        for content_type in self.content_types_list:
+            contenttypes.append(docx.makeelement('Override', nsprefix=None,
+                                                 attributes={'PartName': content_type,
+                                                             'ContentType': self.content_types_list[content_type]}))
+        return contenttypes
+
     def zip_the_docx(self, relationships, document):
         title = 'foo'
         subject = 'foo'
@@ -375,7 +386,7 @@ class DocxView(BrowserView):
         keywords = 'foo'
         coreprops = docx.coreproperties(title=title, subject=subject, creator=creator, keywords=keywords)
         appprops = docx.appproperties()
-        contenttypes = docx.contenttypes()
+        contenttypes = self.fix_the_content_types(self.content_types_list)
         websettings = docx.websettings()
         wordrelationships = docx.wordrelationships(relationships)
         file_name = 'filename.docx'
