@@ -60,6 +60,8 @@ def add_header_and_footer(relationships, body):
     headerReference.set(namespace + 'type', 'default')
     sectPr.append(footerReference)
     sectPr.append(headerReference)
+    # TODO page size should be customisable, hard code to A4 for now
+    sectPr.append(makeelement('pgSz', nsprefix='w', attributes={'h':'16838', 'w':'11906'}))
     pPr.append(sectPr)
     p.append(pPr)
     body.append(p)
