@@ -134,8 +134,11 @@ class DocxView(BrowserView):
         media_path = self.working_folder + '/word/media'
         if not os.path.exists(media_path):
             os.makedirs(media_path)
+        # TODO not sure what picid is for, but seems to be arbritary
+        picid = '42'
         # TODO hard code image name for now
         picname = 'image1.jpg'
+        picdescription = 'The header image'
         file = open(media_path + '/' + picname, 'w')
         file.write(urllib2.urlopen(url).read())
         file.close()
@@ -157,61 +160,10 @@ class DocxView(BrowserView):
                          'media/'+picname])
         # TODO hard code the content_tpe entry for now
         self.content_types_list['/word/media/image1.jpg'] = 'image/jpeg'
-        # There are 3 main elements inside a picture
-        nochangeaspect=True
-        nochangearrowheads=True
         # TODO hard code dimensions for now
         width = '7560310'
         height = '1378585'
-        # TODO not sure what picid is for, but seems to be arbritary
-        picid = '42'
-        picdescription = 'The header image'
-        # 1. The Blipfill - specifies how the image fills the picture area (stretch, tile, etc.)
-        blipfill = makeelement('blipFill', nsprefix='pic')
-        blipfill.append(makeelement('blip', nsprefix='a', attrnsprefix='r',
-                                attributes={'embed': picrelid}))
-        stretch = makeelement('stretch', nsprefix='a')
-        stretch.append(makeelement('fillRect', nsprefix='a'))
-        blipfill.append(makeelement('srcRect', nsprefix='a'))
-        blipfill.append(stretch)
-        # 2. The non visual picture properties
-        nvpicpr = makeelement('nvPicPr', nsprefix='pic')
-        cnvpr = makeelement('cNvPr', nsprefix='pic',
-                        attributes={'id': picid, 'name': 'Picture 1', 'descr': picname})
-        nvpicpr.append(cnvpr)
-        cnvpicpr = makeelement('cNvPicPr', nsprefix='pic')
-        cnvpicpr.append(makeelement('picLocks', nsprefix='a',
-                                attributes={'noChangeAspect': str(int(nochangeaspect)),
-                                'noChangeArrowheads': str(int(nochangearrowheads))}))
-        nvpicpr.append(cnvpicpr)
-        # 3. The Shape properties
-        sppr = makeelement('spPr', nsprefix='pic', attributes={'bwMode': 'auto'})
-        xfrm = makeelement('xfrm', nsprefix='a')
-        xfrm.append(makeelement('off', nsprefix='a', attributes={'x': '0', 'y': '0'}))
-        xfrm.append(makeelement('ext', nsprefix='a', attributes={'cx': width, 'cy': height}))
-        prstgeom = makeelement('prstGeom', nsprefix='a', attributes={'prst': 'rect'})
-        prstgeom.append(makeelement('avLst', nsprefix='a'))
-        sppr.append(xfrm)
-        sppr.append(prstgeom)
-        ln = makeelement('ln', nsprefix='a', attributes={'w': '9525'})
-        ln.append(makeelement('noFill', nsprefix='a'))
-        ln.append(makeelement('miter', nsprefix='a', attributes={'lim': '800000'}))
-        ln.append(makeelement('headEnd', nsprefix='a'))
-        ln.append(makeelement('tailEnd', nsprefix='a'))
-        sppr.append(ln)
-        # Add our 3 parts to the picture element
-        pic = makeelement('pic', nsprefix='pic')
-        pic.append(nvpicpr)
-        pic.append(blipfill)
-        pic.append(sppr)
-        # Now make the supporting elements
-        # The following sequence is just: make element, then add its children
-        graphicdata = makeelement('graphicData', nsprefix='a',
-                                      attributes={'uri': 'http://schemas.openxmlforma'
-                                      'ts.org/drawingml/2006/picture'})
-        graphicdata.append(pic)
-        graphic = makeelement('graphic', nsprefix='a')
-        graphic.append(graphicdata)
+        graphic = self.create_graphic_tag(width, height, picrelid, picid, picname, picdescription)
         # This needs to be in an anchor rather than a framelocks
         # TODO atrbibs shouldn't have a namespace
         anchor = docx.makeelement('anchor', nsprefix='wp',
@@ -389,6 +341,59 @@ class DocxView(BrowserView):
         # TODO and this won't work as it copies the image from the cwd to the template_dir in docx
         relationships, picpara = docx.picture(relationships, 'image1.jpg', 'This is a test description')
         body.append(picpara)
+
+    def create_graphic_tag(self, width, height, picrelid, picid, picname, picdescription):
+        """Create a graphic tag for an image"""
+        # There are 3 main elements inside a picture
+        nochangeaspect=True
+        nochangearrowheads=True
+        # 1. The Blipfill - specifies how the image fills the picture area (stretch, tile, etc.)
+        blipfill = makeelement('blipFill', nsprefix='pic')
+        blipfill.append(makeelement('blip', nsprefix='a', attrnsprefix='r',
+                                    attributes={'embed': picrelid}))
+        stretch = makeelement('stretch', nsprefix='a')
+        stretch.append(makeelement('fillRect', nsprefix='a'))
+        blipfill.append(makeelement('srcRect', nsprefix='a'))
+        blipfill.append(stretch)
+        # 2. The non visual picture properties
+        nvpicpr = makeelement('nvPicPr', nsprefix='pic')
+        cnvpr = makeelement('cNvPr', nsprefix='pic',
+                            attributes={'id': picid, 'name': picname, 'descr': picdescription})
+        nvpicpr.append(cnvpr)
+        cnvpicpr = makeelement('cNvPicPr', nsprefix='pic')
+        cnvpicpr.append(makeelement('picLocks', nsprefix='a',
+                                    attributes={'noChangeAspect': str(int(nochangeaspect)),
+                                    'noChangeArrowheads': str(int(nochangearrowheads))}))
+        nvpicpr.append(cnvpicpr)
+        # 3. The Shape properties
+        sppr = makeelement('spPr', nsprefix='pic', attributes={'bwMode': 'auto'})
+        xfrm = makeelement('xfrm', nsprefix='a')
+        xfrm.append(makeelement('off', nsprefix='a', attributes={'x': '0', 'y': '0'}))
+        xfrm.append(makeelement('ext', nsprefix='a', attributes={'cx': width, 'cy': height}))
+        prstgeom = makeelement('prstGeom', nsprefix='a', attributes={'prst': 'rect'})
+        prstgeom.append(makeelement('avLst', nsprefix='a'))
+        sppr.append(xfrm)
+        sppr.append(prstgeom)
+        ln = makeelement('ln', nsprefix='a', attributes={'w': '9525'})
+        ln.append(makeelement('noFill', nsprefix='a'))
+        ln.append(makeelement('miter', nsprefix='a', attributes={'lim': '800000'}))
+        ln.append(makeelement('headEnd', nsprefix='a'))
+        ln.append(makeelement('tailEnd', nsprefix='a'))
+        sppr.append(ln)
+        # Add our 3 parts to the picture element
+        pic = makeelement('pic', nsprefix='pic')
+        pic.append(nvpicpr)
+        pic.append(blipfill)
+        pic.append(sppr)
+        # Now make the supporting elements
+        # The following sequence is just: make element, then add its children
+        graphicdata = makeelement('graphicData', nsprefix='a',
+                                  attributes={'uri': 'http://schemas.openxmlforma'
+                                  'ts.org/drawingml/2006/picture'})
+        graphicdata.append(pic)
+        graphic = makeelement('graphic', nsprefix='a')
+        graphic.append(graphicdata)
+        return graphic
 
     def fix_the_content_types(self):
         contenttypes = docx.contenttypes()
