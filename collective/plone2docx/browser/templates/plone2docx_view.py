@@ -134,10 +134,10 @@ class DocxView(BrowserView):
         media_path = self.working_folder + '/word/media'
         if not os.path.exists(media_path):
             os.makedirs(media_path)
-        # TODO not sure what picid is for, but seems to be arbritary
-        picid = '42'
-        # TODO hard code image name for now
-        picname = 'image1.jpg'
+        self.image_count += 1
+        picid = str(self.image_count)
+        url_parts = url.split('/')
+        picname = url_parts[-1]
         picdescription = 'The header image'
         file = open(media_path + '/' + picname, 'w')
         file.write(urllib2.urlopen(url).read())
@@ -148,7 +148,7 @@ class DocxView(BrowserView):
         rels_content.append(makeelement('Relationship', nsprefix=None,
                                         attributes={'Id':picrelid,
                                                     'Type':'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
-                                                    'Target':'media/image1.jpg'}))
+                                                    'Target':'media/%s' % picname}))
         rels_path = self.working_folder + '/word/_rels'
         if not os.path.exists(rels_path):
             os.makedirs(rels_path)
@@ -159,7 +159,7 @@ class DocxView(BrowserView):
         self.relationships.append(['http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
                          'media/'+picname])
         # TODO hard code the content_tpe entry for now
-        self.content_types_list['/word/media/image1.jpg'] = 'image/jpeg'
+        self.content_types_list['/word/media/%s' % picname] = 'image/jpeg'
         # TODO hard code dimensions for now
         width = '7560310'
         height = '1378585'
@@ -335,7 +335,7 @@ class DocxView(BrowserView):
         if not os.path.exists(media_path):
             os.makedirs(media_path)
         # TODO hard code image name for now
-        file = open(media_path + '/image1.jpg', 'w')
+        file = open(os.join(media_path, os.path.sep, picname), 'w')
         file.write(urllib2.urlopen(url).read())
         file.close()
         # TODO and this won't work as it copies the image from the cwd to the template_dir in docx
