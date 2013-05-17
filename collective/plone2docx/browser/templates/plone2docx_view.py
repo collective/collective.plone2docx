@@ -85,42 +85,47 @@ def new_header():
 class DocxView(BrowserView):
     """View a plone object in docx format"""
 
+    def __init__(self, context, request):
+        # don't put anything that needs plone api in here, as we may not have a context yet
+        super(DocxView, self).__init__(context, request)
+        self.image_count = 0
+
     def __call__(self):
-        word_template__path = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, 'docx-template'))
+        word_template_path = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, 'docx-template'))
         # TODO get the var folder, to make sure user has write permissions and use a random for folder id
         destination_path = os.path.join(os.getcwd(), 'docx_temp')
         if os.path.exists(destination_path):
             shutil.rmtree(destination_path)
-        shutil.copytree(word_template__path, destination_path)
+        shutil.copytree(word_template_path, destination_path)
         self.working_folder = destination_path
         self.create_the_docx()
         return self.set_the_response()
 
     def create_the_docx(self):
-        relationships = docx.relationshiplist()
+        self.relationships = docx.relationshiplist()
         self.content_types_list = {}
         document = newdocument()
         page = self.get_the_page()
         tree = etree.fromstring(page)
         body = document.xpath('/w:document/w:body', namespaces=docx.nsprefixes)[0]
         self.write_the_docx(body, tree)
-        self.write_the_header(relationships, tree)
-        self.write_the_footer(relationships, tree)
-        add_header_and_footer(relationships, body)
-        self.zip_the_docx(relationships, document)
+        self.write_the_header(tree)
+        self.write_the_footer(tree)
+        add_header_and_footer(self.relationships, body)
+        self.zip_the_docx(document)
         return
 
-    def write_the_header(self, relationships, tree):
+    def write_the_header(self, tree):
         # TODO keep as a tree, rather than writing to the filesystem
         header_doc = new_header()
         header = header_doc.xpath('/w:document/w:hdr', namespaces=docx.nsprefixes)[0]
         header_content = self.get_header_content(tree)
-        self.add_header_image(header_content, header, relationships)
+        self.add_header_image(header_content, header)
         file = open(self.working_folder + '/word/header.xml', 'w')
         file.write(etree.tostring(header))
         file.close()
 
-    def add_header_image(self, element, body, relationshiplist):
+    def add_header_image(self, element, body):
         """Adding an image in the header is different to the body"""
         # TODO defensive coding
         src_url = element.attrib['src']
@@ -134,7 +139,7 @@ class DocxView(BrowserView):
         file = open(media_path + '/' + picname, 'w')
         file.write(urllib2.urlopen(url).read())
         file.close()
-        picrelid = 'rId'+str(len(relationshiplist)+1)
+        picrelid = 'rId'+str(len(self.relationships)+1)
         # TODO this should be moved to a separate method
         rels_content = types = etree.fromstring('<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>')
         rels_content.append(makeelement('Relationship', nsprefix=None,
@@ -148,7 +153,7 @@ class DocxView(BrowserView):
         file = open(rels_path + '/header.xml.rels', 'w')
         file.write(etree.tostring(rels_content))
         file.close()
-        relationshiplist.append(['http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
+        self.relationships.append(['http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
                          'media/'+picname])
         # TODO hard code the content_tpe entry for now
         self.content_types_list['/word/media/image1.jpg'] = 'image/jpeg'
@@ -257,7 +262,7 @@ class DocxView(BrowserView):
         image_tag = content[0]
         return image_tag
 
-    def write_the_footer(self, relationships, tree):
+    def write_the_footer(self, tree):
         # TODO keep as a tree, rather than writing to the filesystem
         namespacemap = {}
         namespacemap['w'] = docx.nsprefixes['w']
@@ -344,7 +349,6 @@ class DocxView(BrowserView):
             self.add_a_list(element, body)
         elif tag == 'table':
             self.add_a_table(element, body)
-        # TODO this won't work as we need relationships
         elif tag == 'img':
             self.add_image(element, body)
 
@@ -369,7 +373,7 @@ class DocxView(BrowserView):
             table_content.append(row_content)
         body.append(docx.table(table_content))
 
-    def add_image(self, element, body, relationships):
+    def add_image(self, element, body):
         """This only works putting in an image in the body, but the image name is hard coded, so don't use"""
         # TODO defensive coding
         src_url = element.attrib['src']
@@ -386,7 +390,7 @@ class DocxView(BrowserView):
         relationships, picpara = docx.picture(relationships, 'image1.jpg', 'This is a test description')
         body.append(picpara)
 
-    def fix_the_content_types(self, relationships):
+    def fix_the_content_types(self):
         contenttypes = docx.contenttypes()
         for content_type in self.content_types_list:
             contenttypes.append(docx.makeelement('Override', nsprefix=None,
@@ -394,16 +398,16 @@ class DocxView(BrowserView):
                                                              'ContentType': self.content_types_list[content_type]}))
         return contenttypes
 
-    def zip_the_docx(self, relationships, document):
+    def zip_the_docx(self, document):
         title = 'foo'
         subject = 'foo'
         creator = 'foo'
         keywords = 'foo'
         coreprops = docx.coreproperties(title=title, subject=subject, creator=creator, keywords=keywords)
         appprops = docx.appproperties()
-        contenttypes = self.fix_the_content_types(self.content_types_list)
+        contenttypes = self.fix_the_content_types()
         websettings = docx.websettings()
-        wordrelationships = docx.wordrelationships(relationships)
+        wordrelationships = docx.wordrelationships(self.relationships)
         file_name = 'filename.docx'
         # Save our document
         # TODO all assets need to be in template_dir to work with this method
