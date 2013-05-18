@@ -1,5 +1,6 @@
 import datetime
 from DateTime import DateTime
+import imghdr
 from lxml import etree
 import os
 import shutil
@@ -7,12 +8,15 @@ import string
 import urllib2
 import zipfile
 
+from PIL import Image
+
 from zope.component import getAdapters
 from zope.interface import implementer
 from zope.publisher.interfaces import IPublishTraverse
 
 from plone.transformchain.interfaces import ITransform
 
+from Products.CMFCore.utils import getToolByName
 from Products.Five import BrowserView
 
 import docx
@@ -67,7 +71,7 @@ def add_header_and_footer(relationships, body):
     body.append(p)
 
 def newdocument():
-    document = docx.makeelement('document', nsprefix=['w', 'r'])
+    document = docx.makeelement('document', nsprefix=['w', 'r', 'wp', 'a', 'pic'])
     document.append(docx.makeelement('body'))
     return document
 
@@ -131,6 +135,7 @@ class DocxView(BrowserView):
         src_url = element.attrib['src']
         # TODO assume a root relative link
         url = self.request['SERVER_URL'] + src_url
+        print url
         media_path = self.working_folder + '/word/media'
         if not os.path.exists(media_path):
             os.makedirs(media_path)
@@ -161,8 +166,8 @@ class DocxView(BrowserView):
         # TODO hard code the content_tpe entry for now
         self.content_types_list['/word/media/%s' % picname] = 'image/jpeg'
         # TODO hard code dimensions for now
-        width = '7560310'
-        height = '1378585'
+        width = 7560310
+        height = 1378585
         graphic = self.create_graphic_tag(width, height, picrelid, picid, picname, picdescription)
         # This needs to be in an anchor rather than a framelocks
         # TODO atrbibs shouldn't have a namespace
@@ -184,7 +189,7 @@ class DocxView(BrowserView):
         positionV = docx.makeelement('positionV', nsprefix='wp', attributes={'relativeFrom':'line',})
         positionV.append(docx.makeelement('posOffset', tagtext='+457200', nsprefix='wp'))
         anchor.append(positionV)
-        anchor.append(docx.makeelement('extent', nsprefix='wp', attributes={'cx':width, 'cy':height}))
+        anchor.append(docx.makeelement('extent', nsprefix='wp', attributes={'cx':str(width), 'cy':str(height)}))
         anchor.append(docx.makeelement('effectExtent', nsprefix='wp', attributes={'b':'0', 'l':'0', 'r':'0', 't':'0'}))
         anchor.append(docx.makeelement('wrapNone', nsprefix='wp'))
         anchor.append(docx.makeelement('docPr', nsprefix='wp', attributes={'id': picid, 'name': 'Picture 1', 'descr': picdescription}))
@@ -296,13 +301,16 @@ class DocxView(BrowserView):
         elif tag == 'h3':
             body.append(docx.heading(element.text.strip(), 3))
         elif tag == 'p':
-            body.append(docx.paragraph(element.text.strip()))
+            if element.text:
+                body.append(docx.paragraph(element.text.strip()))
+            elif len(element) == 1:
+                self.add_anchor_image(element[0], body)
         elif tag == 'ul':
             self.add_a_list(element, body)
         elif tag == 'table':
             self.add_a_table(element, body)
         elif tag == 'img':
-            self.add_image(element, body)
+            self.add_anchor_image(element, body)
 
     def add_a_list(self, element, body):
         items = get_attrs(element)
@@ -325,22 +333,123 @@ class DocxView(BrowserView):
             table_content.append(row_content)
         body.append(docx.table(table_content))
 
-    def add_image(self, element, body):
-        """This only works putting in an image in the body, but the image name is hard coded, so don't use"""
+    def add_anchor_image(self, element, body):
+        """Put an anchored image into the page"""
         # TODO defensive coding
         src_url = element.attrib['src']
-        # TODO assume a root relative link
-        url = self.request['SERVER_URL'] + src_url
-        media_path = self.working_folder + '/word/media'
+        # TODO assume a relative link
+        urltool = getToolByName(self.context, "portal_url")
+        portal = urltool.getPortalObject()
+        base_url = portal.absolute_url()
+        url = base_url + '/' + src_url
+        self.image_count += 1
+        picid = str(self.image_count)
+        # figure out what kind of image it is
+        image_file = urllib2.urlopen(url)
+        image_string = image_file.read()
+        image_type = imghdr.what('ignore_this', h=image_string)
+        url_parts = src_url.split('/')
+        picname = url_parts[0] + '.' + image_type
+        # TODO should check for an alt tag for the description
+        picdescription = ''
+        media_path = os.path.join(self.working_folder, 'word', 'media')
         if not os.path.exists(media_path):
             os.makedirs(media_path)
-        # TODO hard code image name for now
-        file = open(os.join(media_path, os.path.sep, picname), 'w')
-        file.write(urllib2.urlopen(url).read())
+        image_path = os.path.join(media_path, picname)
+        file = open(image_path, 'w')
+        file.write(image_string)
         file.close()
-        # TODO and this won't work as it copies the image from the cwd to the template_dir in docx
-        relationships, picpara = docx.picture(relationships, 'image1.jpg', 'This is a test description')
-        body.append(picpara)
+        pil_image = Image.open(image_path)
+        width, height = pil_image.size
+        width = 3107690
+        height = 1757680
+        picrelid = 'rId'+str(len(self.relationships)+1)
+        self.relationships.append(['http://schemas.openxmlformats.org/officeDocument/2006/relationships/image', 'media/'+picname])
+        graphic = self.create_graphic_tag(width, height, picrelid, picid, picname, picdescription)
+        anchor = docx.makeelement('anchor', nsprefix='wp',
+                                  attributes={'allowOverlap':'1',
+                                              'behindDoc':'0',
+                                              'distB':'0',
+                                              'distL':'0',
+                                              'distR':'0',
+                                              'distT':'0',
+                                              'layoutInCell':'1',
+                                              'locked':'0',
+                                              'relativeHeight':'3',
+                                              'simplePos':'0'})
+        anchor.append(docx.makeelement('simplePos', nsprefix='wp', attributes={'x':'0', 'y':'0'}))
+        positionH = docx.makeelement('positionH', nsprefix='wp', attributes={'relativeFrom':'column',})
+        positionH.append(docx.makeelement('posOffset', tagtext='1506220', nsprefix='wp'))
+        anchor.append(positionH)
+        positionV = docx.makeelement('positionV', nsprefix='wp', attributes={'relativeFrom':'paragraph',})
+        positionV.append(docx.makeelement('posOffset', tagtext='0', nsprefix='wp'))
+        anchor.append(positionV)
+        anchor.append(docx.makeelement('extent', nsprefix='wp', attributes={'cx':str(width), 'cy':str(height)}))
+        anchor.append(docx.makeelement('effectExtent', nsprefix='wp', attributes={'b':'0', 'l':'0', 'r':'0', 't':'0'}))
+        anchor.append(docx.makeelement('wrapNone', nsprefix='wp'))
+        anchor.append(docx.makeelement('docPr', nsprefix='wp', attributes={'id': picid, 'name': 'Picture 1', 'descr': picdescription}))
+        cNvGraphicFramePr = docx.makeelement('cNvGraphicFramePr', nsprefix='wp')
+        cNvGraphicFramePr.append(docx.makeelement('graphicFrameLocks', nsprefix='a', attributes={'noChangeAspect':'1',}))
+        anchor.append(cNvGraphicFramePr)
+        # now we can append the actual graphic
+        anchor.append(graphic)
+        drawing = docx.makeelement('drawing', nsprefix='w')
+        drawing.append(anchor)
+        r = docx.makeelement('r', nsprefix='w')
+        r.append(docx.makeelement('rPr', nsprefix='w'))
+        r.append(drawing)
+        p = docx.makeelement('p', nsprefix='w')
+        pPr = docx.makeelement('pPr', nsprefix='w')
+        pPr.append(docx.makeelement('pStyle', nsprefix='w', attributes={'val':'style0',}))
+        p.append(pPr)
+        p.append(r)
+        body.append(p)
+
+    def add_inline_image(self, element, body):
+        """This does not seem to work with Libreoffice"""
+        # TODO defensive coding
+        src_url = element.attrib['src']
+        # TODO assume a relative link
+        urltool = getToolByName(self.context, "portal_url")
+        portal = urltool.getPortalObject()
+        base_url = portal.absolute_url()
+        url = base_url + '/' + src_url
+        self.image_count += 1
+        picid = str(self.image_count)
+        # figure out what kind of image it is
+        image_file = urllib2.urlopen(url)
+        image_string = image_file.read()
+        image_type = imghdr.what('ignore_this', h=image_string)
+        url_parts = src_url.split('/')
+        picname = url_parts[0] + '.' + image_type
+        # TODO should check for an alt tag for the description
+        picdescription = ''
+        media_path = os.path.join(self.working_folder, 'word', 'media')
+        if not os.path.exists(media_path):
+            os.makedirs(media_path)
+        image_path = os.path.join(media_path, picname)
+        file = open(image_path, 'w')
+        file.write(image_string)
+        file.close()
+        pil_image = Image.open(image_path)
+        width, height = pil_image.size
+        picrelid = 'rId'+str(len(self.relationships)+1)
+        graphic = self.create_graphic_tag(width, height, picrelid, picid, picname, picdescription)
+        inline = docx.makeelement('inline', nsprefix='wp', attributes={'distT':'0', 'distR':'0', 'distL':'0', 'distB':'0'})
+        inline.append(docx.makeelement('extent', nsprefix='wp', attributes={'cy':str(height), 'cx':str(width)}))
+        inline.append(docx.makeelement('effectExtent', nsprefix='wp', attributes={'r':'0', 'b':'0', 'l':'25400', 't':'0'}))
+        inline.append(docx.makeelement('docPr', nsprefix='wp', attributes={'id':picid, 'descr':picdescription, 'name':picname}))
+        cNvGraphicFramePr = docx.makeelement('cNvGraphicFramePr', nsprefix='wp')
+        cNvGraphicFramePr.append(docx.makeelement('graphicFrameLocks', nsprefix='a', attributes={'noChangeAspect':'1',}))
+        inline.append(cNvGraphicFramePr)
+        inline.append(graphic)
+        drawing = docx.makeelement('drawing', nsprefix='w')
+        drawing.append(inline)
+        r = docx.makeelement('r', nsprefix='w')
+        r.append(drawing)
+        p = docx.makeelement('p', nsprefix='w')
+        p.append(r)
+        body.append(p)
 
     def create_graphic_tag(self, width, height, picrelid, picid, picname, picdescription):
         """Create a graphic tag for an image"""
@@ -369,7 +478,7 @@ class DocxView(BrowserView):
         sppr = makeelement('spPr', nsprefix='pic', attributes={'bwMode': 'auto'})
         xfrm = makeelement('xfrm', nsprefix='a')
         xfrm.append(makeelement('off', nsprefix='a', attributes={'x': '0', 'y': '0'}))
-        xfrm.append(makeelement('ext', nsprefix='a', attributes={'cx': width, 'cy': height}))
+        xfrm.append(makeelement('ext', nsprefix='a', attributes={'cx': str(width), 'cy': str(height)}))
         prstgeom = makeelement('prstGeom', nsprefix='a', attributes={'prst': 'rect'})
         prstgeom.append(makeelement('avLst', nsprefix='a'))
         sppr.append(xfrm)
