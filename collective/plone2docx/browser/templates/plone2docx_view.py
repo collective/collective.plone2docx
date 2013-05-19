@@ -361,8 +361,9 @@ class DocxView(BrowserView):
         file.close()
         pil_image = Image.open(image_path)
         width, height = pil_image.size
-        width = 3107690
-        height = 1757680
+        # sizes should be in twips, and it's around 118dpi
+        height = height/118*914400
+        width = width/118*914400
         picrelid = 'rId'+str(len(self.relationships)+1)
         self.relationships.append(['http://schemas.openxmlformats.org/officeDocument/2006/relationships/image', 'media/'+picname])
         graphic = self.create_graphic_tag(width, height, picrelid, picid, picname, picdescription)
