@@ -12,6 +12,7 @@ from zope.component import getAdapters
 from zope.interface import implementer
 from zope.publisher.interfaces import IPublishTraverse
 
+from plone.subrequest import subrequest
 from plone.transformchain.interfaces import ITransform
 
 from Products.CMFCore.utils import getToolByName
@@ -355,8 +356,9 @@ class DocxView(BrowserView):
         self.image_count += 1
         picid = str(self.image_count)
         # figure out what kind of image it is
-        image_file = urllib2.urlopen(url)
-        image_string = image_file.read()
+        # TODO should check an image is actually returned
+        image_response = subrequest(url)
+        image_string = image_response.getBody()
         image_type = imghdr.what('ignore_this', h=image_string)
         url_parts = src_url.split('/')
         picname = url_parts[0] + '.' + image_type
