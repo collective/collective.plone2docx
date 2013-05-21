@@ -324,7 +324,12 @@ class DocxView(BrowserView):
 
     def add_a_table(self, element, body):
         table_content = []
-        table_rows = element[0]
+        # TODO handle tables with a thead
+        if element[0].tag.replace('{http://www.w3.org/1999/xhtml}', '') == 'tbody':
+            import pdb;pdb.set_trace()
+            table_rows = element[0]
+        else:
+            table_rows = element
         for table_row in table_rows:
             row_content = []
             for cell in table_row:
