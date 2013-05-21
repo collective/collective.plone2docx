@@ -133,9 +133,10 @@ class DocxView(BrowserView):
         """Adding an image in the header is different to the body"""
         # TODO defensive coding
         src_url = element.attrib['src']
-        # TODO assume a root relative link
-        url = self.request['SERVER_URL'] + src_url
-        print url
+        urltool = getToolByName(self.context, "portal_url")
+        portal = urltool.getPortalObject()
+        base_url = portal.absolute_url()
+        url = base_url + '/' + src_url
         media_path = self.working_folder + '/word/media'
         if not os.path.exists(media_path):
             os.makedirs(media_path)
@@ -275,6 +276,7 @@ class DocxView(BrowserView):
         return content.text.strip()
 
     def write_the_docx(self, body, tree):
+        # TODO deal with docs that have no head element
         html_head = tree[0]
         html_body = tree[1]
         content = html_body.xpath("//*[@id='content']")
