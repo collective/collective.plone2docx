@@ -83,6 +83,11 @@ def new_header():
     header.append(docx.makeelement('hdr'))
     return header
 
+def fix_entities(html_string):
+    """Entities are not defined in the html dtd"""
+    html_string = html_string.replace('&nbsp;', u'\u00a0')
+    return html_string
+
 @implementer(IPublishTraverse)
 class DocxView(BrowserView):
     """View a plone object in docx format"""
@@ -108,6 +113,7 @@ class DocxView(BrowserView):
         self.content_types_list = {}
         document = newdocument()
         page = self.get_the_page()
+        page = fix_entities(page)
         tree = etree.fromstring(page)
         body = document.xpath('/w:document/w:body', namespaces=docx.nsprefixes)[0]
         self.write_the_docx(body, tree)
