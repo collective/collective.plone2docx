@@ -326,7 +326,6 @@ class DocxView(BrowserView):
         table_content = []
         # TODO handle tables with a thead
         if element[0].tag.replace('{http://www.w3.org/1999/xhtml}', '') == 'tbody':
-            import pdb;pdb.set_trace()
             table_rows = element[0]
         else:
             table_rows = element
