@@ -312,7 +312,7 @@ class DocxView(BrowserView):
                 # TODO whitespace counts as text
                 body.append(docx.paragraph(element.text.strip()))
             elif len(element) == 1:
-                self.add_anchor_image(element[0], body)
+                self.add_inline_image(element[0], body)
         elif tag == 'ul':
             self.add_a_list(element, body)
         elif tag == 'table':
@@ -425,34 +425,12 @@ class DocxView(BrowserView):
         body.append(p)
 
     def add_inline_image(self, element, body):
-        """This does not seem to work with Libreoffice"""
+        """Put an inline image into the document"""
         # TODO defensive coding
         src_url = element.attrib['src']
-        # TODO assume a relative link
-        urltool = getToolByName(self.context, "portal_url")
-        portal = urltool.getPortalObject()
-        base_url = portal.absolute_url()
-        url = base_url + '/' + src_url
-        self.image_count += 1
-        picid = str(self.image_count)
-        # figure out what kind of image it is
-        image_file = urllib2.urlopen(url)
-        image_string = image_file.read()
-        image_type = imghdr.what('ignore_this', h=image_string)
-        url_parts = src_url.split('/')
-        picname = url_parts[0] + '.' + image_type
-        # TODO should check for an alt tag for the description
-        picdescription = ''
-        media_path = os.path.join(self.working_folder, 'word', 'media')
-        if not os.path.exists(media_path):
-            os.makedirs(media_path)
-        image_path = os.path.join(media_path, picname)
-        file_object = open(image_path, 'w')
-        file_object.write(image_string)
-        file_object.close()
-        pil_image = Image.open(image_path)
-        width, height = pil_image.size
+        picid, picname, picdescription, width, height = self.download_iamage(src_url)
         picrelid = 'rId'+str(len(self.relationships)+1)
+        self.relationships.append(['http://schemas.openxmlformats.org/officeDocument/2006/relationships/image', 'media/'+picname])
         graphic = self.create_graphic_tag(width, height, picrelid, picid, picname, picdescription)
         inline = docx.makeelement('inline', nsprefix='wp', attributes={'distT':'0', 'distR':'0', 'distL':'0', 'distB':'0'})
         inline.append(docx.makeelement('extent', nsprefix='wp', attributes={'cy':str(height), 'cx':str(width)}))
