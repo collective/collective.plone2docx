@@ -8,6 +8,8 @@ import zipfile
 
 from PIL import Image
 
+import pynliner
+
 from zope.component import getAdapters
 from zope.interface import implementer
 from zope.publisher.interfaces import IPublishTraverse
@@ -114,6 +116,7 @@ class DocxView(BrowserView):
         self.content_types_list = {}
         document = newdocument()
         page = self.get_the_page()
+        page = pynliner.fromString(page)
         page = fix_entities(page)
         tree = etree.fromstring(page)
         body = document.xpath('/w:document/w:body', namespaces=docx.nsprefixes)[0]
@@ -275,7 +278,7 @@ class DocxView(BrowserView):
         if len(content) == 1:
             content = content[0]
         else:
-            # either no footer id or multiple, so return empty sring
+            # either no footer id or multiple, so return empty string
             return ''
         # TODO for now assume no nested tags
         return content.text.strip()

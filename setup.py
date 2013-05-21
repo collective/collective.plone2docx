@@ -27,6 +27,7 @@ setup(name='collective.plone2docx',
           'setuptools',
           # -*- Extra requirements: -*-
           'docx',
+          'pynliner',
       ],
       extras_require = {
       'test': [
