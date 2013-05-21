@@ -1,10 +1,8 @@
-import datetime
 from DateTime import DateTime
 import imghdr
 from lxml import etree
 import os
 import shutil
-import string
 import urllib2
 import zipfile
 
@@ -125,9 +123,9 @@ class DocxView(BrowserView):
         header = header_doc.xpath('/w:document/w:hdr', namespaces=docx.nsprefixes)[0]
         header_content = self.get_header_content(tree)
         self.add_header_image(header_content, header)
-        file = open(self.working_folder + '/word/header.xml', 'w')
-        file.write(etree.tostring(header))
-        file.close()
+        file_object = open(self.working_folder + '/word/header.xml', 'w')
+        file_object.write(etree.tostring(header))
+        file_object.close()
 
     def add_header_image(self, element, body):
         """Adding an image in the header is different to the body"""
@@ -145,9 +143,9 @@ class DocxView(BrowserView):
         url_parts = url.split('/')
         picname = url_parts[-1]
         picdescription = 'The header image'
-        file = open(media_path + '/' + picname, 'w')
-        file.write(urllib2.urlopen(url).read())
-        file.close()
+        file_object = open(media_path + '/' + picname, 'w')
+        file_object.write(urllib2.urlopen(url).read())
+        file_object.close()
         picrelid = 'rId'+str(len(self.relationships)+1)
         # TODO this should be moved to a separate method
         rels_content = types = etree.fromstring('<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>')
@@ -159,9 +157,9 @@ class DocxView(BrowserView):
         if not os.path.exists(rels_path):
             os.makedirs(rels_path)
         # TODO hard code header name for now
-        file = open(rels_path + '/header.xml.rels', 'w')
-        file.write(etree.tostring(rels_content))
-        file.close()
+        file_object = open(rels_path + '/header.xml.rels', 'w')
+        file_object.write(etree.tostring(rels_content))
+        file_object.close()
         self.relationships.append(['http://schemas.openxmlformats.org/officeDocument/2006/relationships/image',
                          'media/'+picname])
         # TODO hard code the content_tpe entry for now
@@ -229,9 +227,9 @@ class DocxView(BrowserView):
         footer = footer_doc.xpath('/w:document/w:ftr', namespaces=docx.nsprefixes)[0]
         footer_text = self.get_footer_content(tree)
         self.add_page_number(footer, footer_text)
-        file = open(self.working_folder + '/word/footer.xml', 'w')
-        file.write(etree.tostring(footer))
-        file.close()
+        file_object = open(self.working_folder + '/word/footer.xml', 'w')
+        file_object.write(etree.tostring(footer))
+        file_object.close()
 
     def add_page_number(self, footer, text):
         # TODO this needs tidying
@@ -358,9 +356,9 @@ class DocxView(BrowserView):
         if not os.path.exists(media_path):
             os.makedirs(media_path)
         image_path = os.path.join(media_path, picname)
-        file = open(image_path, 'w')
-        file.write(image_string)
-        file.close()
+        file_object = open(image_path, 'w')
+        file_object.write(image_string)
+        file_object.close()
         pil_image = Image.open(image_path)
         width, height = pil_image.size
         # sizes should be in twips, and it's around 118dpi
@@ -431,9 +429,9 @@ class DocxView(BrowserView):
         if not os.path.exists(media_path):
             os.makedirs(media_path)
         image_path = os.path.join(media_path, picname)
-        file = open(image_path, 'w')
-        file.write(image_string)
-        file.close()
+        file_object = open(image_path, 'w')
+        file_object.write(image_string)
+        file_object.close()
         pil_image = Image.open(image_path)
         width, height = pil_image.size
         picrelid = 'rId'+str(len(self.relationships)+1)
@@ -560,9 +558,9 @@ class DocxView(BrowserView):
 
     def set_the_response(self):
         nice_filename = 'filename.docx'
-        file = open(nice_filename)
-        stream = file.read()
-        file.close()
+        file_object = open(nice_filename)
+        stream = file_object.read()
+        file_object.close()
         os.remove(nice_filename)
 
         self.request.response.setHeader("Content-Disposition",
