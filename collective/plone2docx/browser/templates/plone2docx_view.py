@@ -309,6 +309,7 @@ class DocxView(BrowserView):
             body.append(docx.heading(element.text.strip(), 3))
         elif tag == 'p':
             if element.text:
+                # TODO whitespace counts as text
                 body.append(docx.paragraph(element.text.strip()))
             elif len(element) == 1:
                 self.add_anchor_image(element[0], body)
@@ -344,10 +345,8 @@ class DocxView(BrowserView):
             table_content.append(row_content)
         body.append(docx.table(table_content))
 
-    def add_anchor_image(self, element, body):
-        """Put an anchored image into the page"""
-        # TODO defensive coding
-        src_url = element.attrib['src']
+    def download_iamage(self, src_url):
+        """Download an image"""
         # TODO assume a relative link
         urltool = getToolByName(self.context, "portal_url")
         portal = urltool.getPortalObject()
@@ -361,7 +360,7 @@ class DocxView(BrowserView):
         image_string = image_response.getBody()
         image_type = imghdr.what('ignore_this', h=image_string)
         url_parts = src_url.split('/')
-        picname = url_parts[0] + '.' + image_type
+        picname = picid + '.' + image_type
         # TODO should check for an alt tag for the description
         picdescription = ''
         media_path = os.path.join(self.working_folder, 'word', 'media')
@@ -376,6 +375,13 @@ class DocxView(BrowserView):
         # sizes should be in twips, and it's around 118dpi
         height = height/118*914400
         width = width/118*914400
+        return picid, picname, picdescription, width, height
+
+    def add_anchor_image(self, element, body):
+        """Put an anchored image into the page"""
+        # TODO defensive coding
+        src_url = element.attrib['src']
+        picid, picname, picdescription, width, height = self.download_iamage(src_url)
         picrelid = 'rId'+str(len(self.relationships)+1)
         self.relationships.append(['http://schemas.openxmlformats.org/officeDocument/2006/relationships/image', 'media/'+picname])
         graphic = self.create_graphic_tag(width, height, picrelid, picid, picname, picdescription)
