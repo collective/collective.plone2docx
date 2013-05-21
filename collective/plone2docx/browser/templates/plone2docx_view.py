@@ -335,6 +335,7 @@ class DocxView(BrowserView):
 
     def add_a_table(self, element, body):
         table_content = []
+        borders = self.set_table_borders(element)
         # TODO handle tables with a thead
         if element[0].tag.replace('{http://www.w3.org/1999/xhtml}', '') == 'tbody':
             table_rows = element[0]
@@ -346,7 +347,21 @@ class DocxView(BrowserView):
                 if cell.text:
                     row_content.append(cell.text.strip())
             table_content.append(row_content)
-        body.append(docx.table(table_content))
+        body.append(docx.table(table_content, heading=False, borders=borders))
+
+    def set_table_borders(self, element):
+        """Setup the table borders"""
+        # TODO actually obey the css style
+        borders = {'all': {}}
+        if element.attrib.has_key('style'):
+            style = element.attrib['style']
+        else:
+            return borders
+        borders['all']['color'] = 'black'
+        borders['all']['space'] = '8'
+        borders['all']['sz'] = '8'
+        borders['all']['val'] = 'single'
+        return borders
 
     def download_iamage(self, src_url):
         """Download an image"""
