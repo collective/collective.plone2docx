@@ -67,6 +67,14 @@ def add_header_and_footer(relationships, body):
     sectPr.append(headerReference)
     # TODO page size should be customisable, hard code to A4 for now
     sectPr.append(makeelement('pgSz', nsprefix='w', attributes={'h':'16838', 'w':'11906'}))
+    # TODO hard code margins
+    sectPr.append(makeelement('pgMar', nsprefix='w', attributes={'bottom':'+1440',
+                                                                 'footer':'720',
+                                                                 'gutter':'0',
+                                                                 'header':'720',
+                                                                 'left':'1800',
+                                                                 'right':'1800',
+                                                                 'top':'+1800'}))
     pPr.append(sectPr)
     p.append(pPr)
     body.append(p)
