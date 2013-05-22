@@ -420,7 +420,6 @@ class DocxView(BrowserView):
         # which is 8306 twips, or 151,900,130,000 emus
         # which should be a little over 1400 pixels, but isn't
         width, height = pil_image.size
-        import pdb;pdb.set_trace()
         if width > 800:
             ratio = float(800)/width
             width = int(width * ratio)
