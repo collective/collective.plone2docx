@@ -316,11 +316,14 @@ class DocxView(BrowserView):
             if 'page-break-before' in element.attrib['style']:
                 body.append(docx.pagebreak())
         if tag == 'h1':
-            body.append(docx.heading(element.text.strip(), 1))
+            if element.text:
+                body.append(docx.heading(element.text.strip(), 1))
         elif tag == 'h2':
-            body.append(docx.heading(element.text.strip(), 2))
+            if element.text:
+                body.append(docx.heading(element.text.strip(), 2))
         elif tag == 'h3':
-            body.append(docx.heading(element.text.strip(), 3))
+            if element.text:
+                body.append(docx.heading(element.text.strip(), 3))
         elif tag == 'p':
             if element.text:
                 # TODO whitespace counts as text
@@ -344,6 +347,9 @@ class DocxView(BrowserView):
                 body.append(docx.paragraph(item.text.strip(), style='ListBullet'))
 
     def add_a_table(self, element, body):
+        if len(element) == 0:
+            # empty table so do nothing
+            return
         table_content = []
         borders = self.set_table_borders(element)
         # TODO handle tables with a thead
@@ -387,7 +393,6 @@ class DocxView(BrowserView):
         image_response = subrequest(url)
         image_string = image_response.getBody()
         image_type = imghdr.what('ignore_this', h=image_string)
-        url_parts = src_url.split('/')
         picname = picid + '.' + image_type
         # TODO should check for an alt tag for the description
         picdescription = ''
@@ -399,11 +404,28 @@ class DocxView(BrowserView):
         file_object.write(image_string)
         file_object.close()
         pil_image = Image.open(image_path)
-        width, height = pil_image.size
+        width, height = self.calculate_image_sizes(pil_image)
         # sizes should be in twips, and it's around 118dpi
         height = height/118*914400
         width = width/118*914400
         return picid, picname, picdescription, width, height
+
+    def calculate_image_sizes(self, pil_image):
+        """Get the image sizes"""
+        # TODO this should look at the style on the img tag
+        # resize the image so it fits on portrait page
+        # A4 is just shy of 11906x16838
+        # Taking out the margins
+        # TODO since we are in portrait, just care about the width
+        # which is 8306 twips, or 151,900,130,000 emus
+        # which should be a little over 1400 pixels, but isn't
+        width, height = pil_image.size
+        import pdb;pdb.set_trace()
+        if width > 800:
+            ratio = float(800)/width
+            width = int(width * ratio)
+            height = int(height * ratio)
+        return width, height
 
     def add_anchor_image(self, element, body):
         """Put an anchored image into the page"""
