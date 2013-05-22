@@ -304,6 +304,9 @@ class DocxView(BrowserView):
 
     def add_element(self, body, element, tag):
         """Add the element to the document"""
+        if element.attrib.has_key('style'):
+            if 'page-break-before' in element.attrib['style']:
+                body.append(docx.pagebreak())
         if tag == 'h1':
             body.append(docx.heading(element.text.strip(), 1))
         elif tag == 'h2':
