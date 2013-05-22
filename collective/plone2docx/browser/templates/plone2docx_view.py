@@ -324,9 +324,8 @@ class DocxView(BrowserView):
             self.add_anchor_image(element, body)
 
     def add_a_list(self, element, body):
-        items = get_attrs(element)
         # TODO doesn't do nested lists
-        for item in items:
+        for item in element:
             tag = item.tag.replace('{http://www.w3.org/1999/xhtml}', '')
             if tag == 'ul':
                 continue
