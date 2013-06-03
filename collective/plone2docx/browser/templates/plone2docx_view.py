@@ -364,6 +364,7 @@ class DocxView(BrowserView):
                     row_content.append(cell.text.strip())
             table_content.append(row_content)
         body.append(docx.table(table_content, heading=False, borders=borders))
+        body.append(docx.paragraph(''))
 
     def set_table_borders(self, element):
         """Setup the table borders"""
