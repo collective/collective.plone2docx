@@ -161,7 +161,8 @@ class DocxView(BrowserView):
         picname = url_parts[-1]
         picdescription = 'The header image'
         file_object = open(media_path + '/' + picname, 'w')
-        file_object.write(subrequest(url))
+        image_string = subrequest(url).getBody()
+        file_object.write(image_string)
         file_object.close()
         picrelid = 'rId'+str(len(self.relationships)+1)
         # TODO this should be moved to a separate method
