@@ -416,8 +416,8 @@ class DocxView(BrowserView):
         pil_image = Image.open(image_path)
         width, height = self.calculate_image_sizes(pil_image)
         # sizes should be in twips, and it's around 118dpi
-        height = height/118*914400
-        width = width/118*914400
+        height = height*914400/118
+        width = width*914400/118
         return picid, picname, picdescription, width, height
 
     def calculate_image_sizes(self, pil_image):
