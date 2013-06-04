@@ -357,13 +357,22 @@ class DocxView(BrowserView):
             table_rows = element[0]
         else:
             table_rows = element
+        no_columns = len(table_rows[0])
         for table_row in table_rows:
             row_content = []
             for cell in table_row:
                 if cell.text:
                     row_content.append(cell.text.strip())
             table_content.append(row_content)
-        body.append(docx.table(table_content, heading=False, borders=borders))
+        column_widths = []
+        # TODO only twips are supported
+        # 2390 is just over 4.22cm
+        # page width is 14.6cm plus margins
+        # so content width is just over 8260 twips
+        cell_width = 8260/no_columns
+        for i in range(no_columns):
+            column_widths.append(cell_width)
+        body.append(docx.table(table_content, heading=False, colw=column_widths, borders=borders))
         body.append(docx.paragraph(''))
 
     def set_table_borders(self, element):
