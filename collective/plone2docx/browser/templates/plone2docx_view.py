@@ -3,7 +3,6 @@ import imghdr
 from lxml import etree
 import os
 import shutil
-import urllib2
 import zipfile
 
 from PIL import Image
@@ -162,7 +161,7 @@ class DocxView(BrowserView):
         picname = url_parts[-1]
         picdescription = 'The header image'
         file_object = open(media_path + '/' + picname, 'w')
-        file_object.write(urllib2.urlopen(url).read())
+        file_object.write(subrequest(url).read())
         file_object.close()
         picrelid = 'rId'+str(len(self.relationships)+1)
         # TODO this should be moved to a separate method
