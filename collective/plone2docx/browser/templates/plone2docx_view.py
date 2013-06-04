@@ -161,7 +161,7 @@ class DocxView(BrowserView):
         picname = url_parts[-1]
         picdescription = 'The header image'
         file_object = open(media_path + '/' + picname, 'w')
-        file_object.write(subrequest(url).read())
+        file_object.write(subrequest(url))
         file_object.close()
         picrelid = 'rId'+str(len(self.relationships)+1)
         # TODO this should be moved to a separate method
@@ -379,7 +379,7 @@ class DocxView(BrowserView):
         borders['all']['val'] = 'single'
         return borders
 
-    def download_iamage(self, src_url):
+    def download_image(self, src_url):
         """Download an image"""
         # TODO assume a relative link
         urltool = getToolByName(self.context, "portal_url")
@@ -430,7 +430,7 @@ class DocxView(BrowserView):
         """Put an anchored image into the page"""
         # TODO defensive coding
         src_url = element.attrib['src']
-        picid, picname, picdescription, width, height = self.download_iamage(src_url)
+        picid, picname, picdescription, width, height = self.download_image(src_url)
         picrelid = 'rId'+str(len(self.relationships)+1)
         self.relationships.append(['http://schemas.openxmlformats.org/officeDocument/2006/relationships/image', 'media/'+picname])
         graphic = self.create_graphic_tag(width, height, picrelid, picid, picname, picdescription)
@@ -477,7 +477,7 @@ class DocxView(BrowserView):
         """Put an inline image into the document"""
         # TODO defensive coding
         src_url = element.attrib['src']
-        picid, picname, picdescription, width, height = self.download_iamage(src_url)
+        picid, picname, picdescription, width, height = self.download_image(src_url)
         picrelid = 'rId'+str(len(self.relationships)+1)
         self.relationships.append(['http://schemas.openxmlformats.org/officeDocument/2006/relationships/image', 'media/'+picname])
         graphic = self.create_graphic_tag(width, height, picrelid, picid, picname, picdescription)
