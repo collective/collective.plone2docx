@@ -19,6 +19,7 @@ from plone.transformchain.interfaces import ITransform
 from Products.CMFCore.utils import getToolByName
 from Products.Five import BrowserView
 
+from urllib import unquote
 import docx
 from docx import makeelement
 
@@ -151,7 +152,12 @@ class DocxView(BrowserView):
         urltool = getToolByName(self.context, "portal_url")
         portal = urltool.getPortalObject()
         base_url = portal.absolute_url()
-        url = base_url + '/' + src_url
+        #url = base_url + '/' + src_url
+        docx.log.info('Header Image base_url: %s', base_url)
+        docx.log.info('Header Image src_url: %s', src_url)
+        url = src_url
+        if url.startswith(base_url):
+            url = url[len(base_url)+1:]
         media_path = self.working_folder + '/word/media'
         if not os.path.exists(media_path):
             os.makedirs(media_path)
@@ -161,7 +167,8 @@ class DocxView(BrowserView):
         picname = url_parts[-1]
         picdescription = 'The header image'
         file_object = open(media_path + '/' + picname, 'w')
-        image_string = subrequest(url).getBody()
+        docx.log.info('Header Image url: %s', url)
+        image_string = subrequest(unquote(url)).getBody()
         file_object.write(image_string)
         file_object.close()
         picrelid = 'rId'+str(len(self.relationships)+1)
@@ -395,12 +402,18 @@ class DocxView(BrowserView):
         urltool = getToolByName(self.context, "portal_url")
         portal = urltool.getPortalObject()
         base_url = portal.absolute_url()
-        url = base_url + '/' + src_url
+        #url = base_url + '/' + src_url
+        docx.log.info('Image base_url: %s', base_url)
+        docx.log.info('Image src_url: %s', src_url)
+        url = src_url
+        if url.startswith(base_url):
+            url = url[len(base_url)+1:]
         self.image_count += 1
         picid = str(self.image_count)
         # figure out what kind of image it is
         # TODO should check an image is actually returned
-        image_response = subrequest(url)
+        docx.log.info('Image url: %s', url)
+        image_response = subrequest(unquote(url))
         image_string = image_response.getBody()
         image_type = imghdr.what('ignore_this', h=image_string)
         picname = picid + '.' + image_type
